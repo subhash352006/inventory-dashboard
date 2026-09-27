@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StockTrack Pro — Retail Inventory & Daily Stock Audit System</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'><path d='M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4'/></svg>" />
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- React 18 & ReactDOM CDN -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Babel Standalone for in-browser JSX compilation -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-100/70 text-slate-900 antialiased selection:bg-indigo-500 selection:text-white">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useCallback, useRef } = React;
+
+    // --- SEED DATA & CATALOG GENERATOR (520+ Items across 8 categories) ---
+    const CATEGORIES = [
+      { id: 1, name: 'Electronics', code: 'ELC' },
+      { id: 2, name: 'Grocery & Gourmet', code: 'GRO' },
+      { id: 3, name: 'Apparel & Footwear', code: 'APP' },
+      { id: 4, name: 'Home & Kitchen', code: 'HMK' },
+      { id: 5, name: 'Health & Personal Care', code: 'HPC' },
+      { id: 6, name: 'Sports & Outdoors', code: 'SPO' },
+      { id: 7, name: 'Books & Stationery', code: 'BKS' },
+      { id: 8, name: 'Hardware & Tools', code: 'HDW' }
+    ];
+
+    const SUPPLIERS = [
+      { id: 1, name: 'Apex Distribution Group', leadTimeDays: 3, rating: 4.8 },
+      { id: 2, name: 'Nordic Merchant Partners', leadTimeDays: 5, rating: 4.6 },
+      { id: 3, name: 'Pacific Coast Wholesale', leadTimeDays: 2, rating: 4.9 },
+      { id: 4, name: 'Vanguard Retail Logistics', leadTimeDays: 4, rating: 4.5 },
+      { id: 5, name: 'Summit Supply Chain Inc.', leadTimeDays: 6, rating: 4.7 }
+    ];
+
+    const ITEM_TEMPLATES = [
+      { catId: 1, catName: 'Electronics', prefix: 'ELC', names: [
+        'Pro ANC Wireless Headphones', 'USB-C Fast Charging Cable 2m', 'MagSafe Magnetic Power Bank 10000mAh',
+        'Ultra-Slim Bluetooth Keyboard', 'Ergonomic Vertical Mouse', '4K 60Hz HDMI 2.1 Cable',
+        '1080p FHD Streaming Webcam', 'Multi-Port USB 3.2 Hub', 'Noise-Cancelling Earbuds Pro',
+        'Smart LED Desk Lamp w/ Wireless Qi', 'Portable SSD Drive 1TB', 'Dual Monitor Desk Mount Arm',
+        'Braided Audio Aux Cable 3.5mm', 'Smart WiFi Plug Mini (2-Pack)', 'GaN Wall Charger 65W Triple Port',
+        'Microfiber Screen Cleaning Kit', 'Laptop Cooling Stand Aluminum', 'Surge Protector 8-Outlet Power Strip',
+        'Bluetooth 5.3 Audio Receiver', 'Wireless Barcode Scanner Handheld', 'Cable Management Sleeve Kit',
+        'Stylus Pen for Touchscreens', 'Smart Fitness Tracker Band', 'Cat-8 High-Speed Ethernet Cable 5m',
+        'External DVD-RW Drive USB 3.0', 'RGB Gaming Mousepad Extended', 'Webcam Privacy Shutter (3-Pack)',
+        'USB Flash Drive 128GB Metal', 'Car Phone Mount Air-Vent Gravity', 'Magnetic Wireless Car Charger',
+        'Compact Bluetooth Speaker 15W', 'Micro SD Card 256GB V30', 'USB to Lightning Adapter Braided',
+        'Screen Protector Tempered Glass 2x', 'Active Noise-Cancelling Over-Ear', 'Rechargeable AA Batteries 4-Pack',
+        'Smart Home Zigbee Bridge Hub', 'Mini DisplayPort to HDMI Adapter', 'Microphone Boom Scissor Arm',
+        'Podcast USB Cardioid Microphone', 'Digital Voice Recorder 16GB', 'Universal Travel Plug Adapter',
+        'Wireless Presentation Clicker Remote', 'Fast Qi Charging Pad 15W', 'Mechanical Gaming Keyboard TKL',
+        'Studio Monitor Desktop Stands Pair', 'High-Speed SD Card Reader Type-C', 'Heavy-Duty Laptop Sleeve 14-inch',
+        'Bluetooth Tracker Key Finder', 'Action Camera Bike Mount Kit', 'Dual Band AC1200 WiFi Dongle',
+        'Thermal Label Printer 4x6', 'Barcode Label Rolls 500ct', 'Smart Door Sensor Bluetooth',
+        'Digital Infrared Thermometer', 'LED Ring Light 10-inch with Tripod', 'USB-C to DisplayPort Cable 4K',
+        'Smart Water Leak Detector', 'Wireless Ergonomic Trackball Mouse', '100W PD Braided Fast Cable',
+        'Hard Shell Protective Tech Case', 'HDMI Bi-Directional Switch 2 in 1', 'Anti-Static Wristband Grounding',
+        'Mini Tripod with Phone Grip', 'USB Desktop Microphone w/ Mute'
+      ]},
+      { catId: 2, catName: 'Grocery & Gourmet', prefix: 'GRO', names: [
+        'Organic Single-Origin Coffee Beans 1kg', 'Cold-Pressed Extra Virgin Olive Oil 750ml',
+        'Rolled Jumbo Oats Organic 1kg', 'Pure Mountain Wildflower Honey 500g', 'Himalayan Fine Pink Salt 1kg',
+        'Aged Balsamic Vinegar of Modena 250ml', 'Unsweetened Almond Milk Barista 1L', 'Matcha Green Tea Ceremonial Grade 50g',
+        'Organic Basmati Rice Royal 5kg', 'Raw Artisan Mixed Nuts 400g', 'Dark Chocolate 85% Cacao Bar 100g',
+        'Organic Quinoa Grain Tri-Color 750g', 'Whole Grain Chia Seeds 500g', 'Pure Maple Syrup Grade A 375ml',
+        'Sparkling Mineral Water 750ml (12-pack)', 'Roasted Sunflower Seeds Salted 250g', 'Creamy Organic Peanut Butter 500g',
+        'Ground Ceylon Cinnamon Powder 150g', 'Gluten-Free Penne Rigate Pasta 500g', 'San Marzano Canned Peeled Tomatoes 800g',
+        'Cold Brew Nitro Coffee Can 330ml', 'Dried Organic Cranberries 300g', 'Organic Coconut Flour 500g',
+        'Artisan Granola Honey Almond 450g', 'Matcha Latte Powder Blend 250g', 'Raw Honeycomb Square 300g',
+        'Tahini Pure Sesame Paste 300g', 'Organic Apple Cider Vinegar 500ml', 'Lentils Green Organic 1kg',
+        'Gourmet Truffle Flavored Olive Oil 100ml', 'Kombucha Ginger Lemon 330ml 6-pack', 'Dark Roasted Espresso Pods 50ct',
+        'Cold-Pressed Avocado Oil 500ml', 'Flaxseed Whole Organic 500g', 'Natural Sea Salt Flakes 250g',
+        'Cashew Butter Smooth 350g', 'Herbal Chamomile Tea Bags 40ct', 'Coconut Water Pure 1L',
+        'Raw Macadamia Nuts 200g', 'Black Peppercorns Whole Grinder 180g', 'Spelt Flour Stone Ground 1kg',
+        'Goji Berries Sun Dried 250g', 'Pumpkin Seeds Raw Shelled 400g', 'Sourdough Crispbread Rye 200g',
+        'Dijon Mustard Authentic 200g', 'Smoked Spanish Paprika Sweet 100g', 'Steel-Cut Oats Organic 1kg',
+        'Organic Vegetable Broth Concentrate 250ml', 'Fair Trade Cocoa Powder 250g', 'Medjool Dates Premium 500g',
+        'White Truffle Sea Salt 100g', 'Pistachios Roasted & Salted 300g', 'Almond Flour Blanched 500g',
+        'Peppermint Herbal Infusion 50ct', 'Earl Grey Bergamot Tea Loose 150g', 'Raw Walnuts Halves 350g',
+        'Organic Brown Basmati Rice 2kg', 'Wild Berry Jam Reduced Sugar 340g', 'Tahitian Vanilla Bean Pods (3-pk)',
+        'Dry Roasted Edamame 200g', 'Toasted Sesame Oil Pure 250ml', 'Organic Hemp Hearts Seeds 450g',
+        'Ghirardelli Dark Melting Wafers 300g', 'Jasmine Rice Fragrant 5kg', 'Agave Nectar Organic Blue 500ml'
+      ]},
+      { catId: 3, catName: 'Apparel & Footwear', prefix: 'APP', names: [
+        'Heavyweight Cotton Crew T-Shirt Black', 'Heavyweight Cotton Crew T-Shirt White', 'Slim-Fit Stretch Denim Jeans 32/32',
+        'Merino Wool Crewneck Sweater Heather Grey', 'Technical Running Shorts 7-inch Black', 'Moisture-Wicking Athletic Tee Navy',
+        'Fleece Pullover Hoodie Charcoal M', 'Water-Resistant Windbreaker Jacket', 'Cushioned Athletic Ankle Socks 6-Pack',
+        'Classic Canvas Low-Top Sneakers 42', 'Tailored Chino Trousers Khaki 32/30', 'Breathable Training Tank Top',
+        'Waterproof Trail Hiking Shoes 43', 'Unisex Corduroy Cap Navy', 'Thermal Base Layer Long Sleeve Top',
+        'Merino Wool Trail Socks 3-Pack', 'Full-Zip French Terry Track Jacket', 'Lightweight Packable Down Vest',
+        'Relaxed Fit Linen Button-Down Shirt', 'Quick-Dry Swim Trunks Patterned', 'Genuine Leather Belt Reversible Black/Brown',
+        'Polarized Sunglasses Classic Wayfarer', 'Ribbed Beanie Hat Cashmere Blend', 'Water-Repellent Commuter Backpack 22L',
+        'Seamless Compression Tights Running', 'Brushed Flannel Plaid Workshirt', 'Performance Golf Polo Shirt Blue',
+        'Lightweight Rain Poncho Hooded', 'Ankle Compression Sleeves Pair', 'Vintage Wash Graphic Tee Olive',
+        'Everyday Canvas Tote Bag Natural', 'Knit Wool Fingerless Gloves', 'Waterproof Winter Mittens Insulated',
+        'Casual Slip-On Loafers Suede Brown 42', 'Supportive Cross-Training Shoes 44', 'Heavyweight Canvas Chore Coat',
+        'Drawstring Elastic Waist Lounge Pants', 'Silk Patterned Necktie Classic', 'Woven Leather Cardholder Wallet',
+        'Bifold RFID Blocking Leather Wallet', 'Anti-Blister Running Socks Tab 3-pk', 'Heavy Cotton Oversized Boxy Tee',
+        'Cargo Work Utility Pants Multi-Pocket', 'Packable Bucket Hat Waterproof', 'Thermal Merino Wool Balaclava',
+        'Lightweight Walking Sneakers Knit 41', 'Chelsea Boots Waterproof Leather 43', 'Reflective Night Running Vest',
+        'Stretch Athletic Headband 3-Pack', 'Performance No-Show Socks 6-Pack', 'Quilted Bomber Jacket Lightweight',
+        'Slim Fit Oxford Dress Shirt White', 'Chambray Casual Workshirt Blue', 'Sherpa Lined Denim Jacket',
+        'Modal Ribbed Lounge Shorts', 'Fleece Jogger Sweatpants Heather Grey', 'Thermal Ski Socks Padded 2-Pack',
+        'Waxed Canvas Duffle Bag 35L', 'Neoprene Water Shoes Quick Dry 42', 'Gym Stringer Tank Top Ribbed',
+        'Pima Cotton V-Neck Undershirt 3-pk', 'Heavy Duty Work Boot Crew Socks', 'Waterproof Shoe Covers Silicone',
+        'Athletic Wrist Sweatbands Set of 4', 'Classic Aviator Sunglasses UV400'
+      ]},
+      { catId: 4, catName: 'Home & Kitchen', prefix: 'HMK', names: [
+        'Tri-Ply Stainless Steel Fry Pan 10-inch', 'Chef Knife 8-inch High Carbon Steel', 'French Press Coffee Maker 1L Glass',
+        'Double-Walled Borosilicate Glasses (4-pk)', 'Silicone Cooking Utensils Set 10-pc', 'Magnetic Knife Strip Wall Mount 16in',
+        'Airtight Glass Food Storage Containers (8-pk)', 'Microfiber Kitchen Cleaning Towels 12-pk', 'Digital Kitchen Food Scale 5kg Precision',
+        'Cast Iron Skillet Pre-Seasoned 12-inch', 'Electric Stainless Kettle Variable Temp', 'Non-Slip Bamboo Cutting Board Set (3-pk)',
+        'Silicone Baking Mats Sheet Pan Size (2-pk)', 'Stainless Steel Mixing Bowls w/ Lids (5-pk)', 'Stainless Measuring Cups and Spoons 12-pc',
+        'Ceramic Pour-Over Coffee Dripper V60', 'Cold Brew Iced Coffee Pitcher 1.5L', 'Reusable Silicone Food Storage Bags (6-pk)',
+        'Rotary Cheese Grater Stainless Drum', 'Over-The-Sink Roll-Up Dish Drying Rack', 'Heavy Duty Kitchen Shears Utility Scissors',
+        'Stoneware Ceramic Dinner Plates (Set of 4)', 'Ceramic Cereal Bowls Matte Slate (Set of 4)', 'Insulated Gravy Boat Double Wall 500ml',
+        'Manual Salt and Pepper Grinder Mill Set', 'Barista Espresso Tamper 54mm Calibrated', 'Espresso Knock Box Stainless Steel Compact',
+        'Countertop Compost Bin Odor Filter 3L', 'Drawer Bamboo Organizer Expandable', 'Under-Sink Storage Sliding Organizers (2-pk)',
+        'Memory Foam Bath Mat Ultra Absorbent', 'Waffle Weave Turkish Cotton Hand Towel 2x', 'Microfiber Bed Sheet Set Queen Deep Pocket',
+        'Hypoallergenic Pillow Inserts Queen (2-pk)', 'Velvet Hangers Heavy Duty 50-Pack Black', 'Underbed Storage Fabric Bags Zippered 3x',
+        'Aromatherapy Essential Oil Diffuser 300ml', 'Pure Soy Wax Scented Candle Cedar & Amber', 'Wall Mount Spice Rack Grippers 4-Pack',
+        'Stainless Steel Trash Can Step Pedal 30L', 'Motion Sensor Trash Can Kitchen 50L', 'Silicone Ice Cube Trays with Lids (4-pk)',
+        'Cocktail Shaker Set Bartender 14-Piece', 'Stemless Wine Glasses Crystal 18oz (4-pk)', 'Moscow Mule Copper Mugs Handcrafted 4x',
+        'Tea Infuser Basket Stainless Steel 2x', 'Vegetable Mandoline Slicer Multi-Blade', 'Meat Temperature Probe Instant Read Digital',
+        'Handheld Milk Frother Whisk Electric', 'Cast Iron Dutch Oven Enameled 5.5-Quart', 'Silicone Oven Mitts Heat Resistant Pair',
+        'Pan Protectors Pot Dividers 6-Piece Set', 'Cabinet Shelf Risers Wire Storage (2-pk)', 'Self-Adhesive Wall Hooks Stainless 6-pk',
+        'Glass Oil and Vinegar Dispenser Cruet 2x', 'Ceramic Spoon Rest Stove Top Dish', 'Garlic Press Crusher Stainless Steel Pro',
+        'Stainless Steel Peeler Y-Shape Sharp', 'Pizza Stone Round Cordierite 14-inch', 'Non-Stick Springform Cake Pan 9-inch',
+        'Cooling Racks Wire Grid Stainless (2-pk)', 'Silicone Ice Pop Molds Reusable 6-Cavity', 'Glass Water Pitcher with Filter Lid 2L',
+        'Bamboo Paper Towel Holder Countertop', 'Linen Coasters Absorbent Round Set of 6'
+      ]},
+      { catId: 5, catName: 'Health & Personal Care', prefix: 'HPC', names: [
+        'Broad Spectrum Sunscreen SPF 50+ 150ml', 'Sonic Electric Toothbrush Smart Sensor', 'Replacement Brush Heads Sonic 4-Pack',
+        'Hydro Boost Hyaluronic Acid Serum 50ml', 'Gentle Foaming Daily Facial Cleanser 200ml', 'Vitamin C Brightening Serum 30ml Dropper',
+        'Niacinamide 10% + Zinc 1% Blemish Serum', 'Ceramide Barrier Moisturizing Cream 100g', 'Deep Conditioning Argan Hair Mask 250ml',
+        'Sulfate-Free Tea Tree Shampoo 400ml', 'Hydrating Biotin Hair Conditioner 400ml', 'Organic Virgin Jojoba Oil Dropper 100ml',
+        'Vitamin D3 + K2 Liquid Drops 50ml', 'Magnesium Glycinate Capsules 400mg 120ct', 'High Potency Omega-3 Fish Oil 120 Softgels',
+        'Probiotic 50 Billion CFU 60 Veggie Caps', 'Hydrocolloid Pimple Patches 72-Count', 'Natural Mineral Deodorant Stick 75g',
+        'Bamboo Charcoal Dental Floss 50m (2-pk)', 'Water Flosser Cordless Portable Oral Irrigator', 'Exfoliating Coffee Body Scrub 300g',
+        'Shea Butter Ultra Nourishing Hand Cream', 'Retinol Night Renewal Cream 50ml', 'Under-Eye Caffeine Gel Treatment 15ml',
+        'Epsom Bath Soaking Salt Eucalyptus 2kg', 'Essential Lavender Sleep Mist Pillow Spray', 'Digital Forehead Thermometer Non-Contact',
+        'Upper Arm Blood Pressure Monitor Auto', 'Pulse Oximeter Fingertip Oxygen Reader', 'First Aid Travel Medical Kit 120-Piece',
+        'Reusable Ice Gel Pack Hot Cold Therapy', 'Acupressure Foot Massage Roller Spiky', 'Zinc Oxide Mineral Diaper Rash Cream',
+        'Natural Lip Balm Beeswax Mint (4-Pack)', 'Microfiber Hair Towel Wrap Fast Drying', 'Silicone Scalp Massager Shampoo Brush',
+        'Facial Jade Roller and Gua Sha Stone Set', 'Nail Clipper Set Professional Stainless 5-pc', 'Cuticle Oil Pen Hydrating Almond 3-pk',
+        'Pumice Stone Foot Scrubber Natural Lava', 'Hypoallergenic Adhesive Bandages 100ct', 'Sterile Saline Nasal Spray Mist 150ml',
+        'Sleep Mask 100% Mulberry Silk Contoured', 'Silicone Noise Cancelling Earplugs (3-pk)', 'Collagen Peptides Hydrolyzed Powder 500g',
+        'Zinc Gluconate 50mg Immune Support 100ct', 'Elderberry Immune Gummies Vitamin C 60ct', 'Iron Complex Gentle Capsules 90ct',
+        'Melatonin 3mg Sleep Dissolving Tablets 90ct', 'Turmeric Curcumin w/ BioPerine 120ct', 'Ashwagandha Organic Root Extract 90ct',
+        'Apple Cider Vinegar Gummies Raw 60ct', 'Hand Sanitizer Spray Ethyl 80% (4-Pack)', 'Moisturizing Antibacterial Foam Wash 300ml',
+        'Nose Pore Strips Deep Cleansing 14-pk', 'Beard Oil Organic Cedarwood 50ml Dropper', 'Boar Bristle Beard Brush Wood Handle',
+        'Safety Razor Double Edge Stainless Steel', 'Platinum Coated Razor Blades 50-Pack', 'Tea Tree Blemish Spot Treatment Wand',
+        'Soothing Aloe Vera Gel 99% Pure 300ml', 'Witch Hazel Toner Alcohol Free 250ml', 'Exfoliating Bath Washcloth Loofah 3-pk',
+        'Foot Peel Mask Exfoliating Booties 2-pk', 'Organic Castor Oil Cold-Pressed 250ml'
+      ]},
+      { catId: 6, catName: 'Sports & Outdoors', prefix: 'SPO', names: [
+        'High Density Non-Slip Yoga Mat 6mm', 'Fabric Booty Resistance Bands Set of 3', 'Loop Resistance Exercise Bands 5-Pack',
+        'Insulated Stainless Gym Bottle 1 Liter', 'High-Density Foam Roller Deep Muscle 18in', 'Speed Cable Jump Rope Ball Bearings',
+        'Adjustable Hand Grip Strengthener 10-60kg', 'Core Sliders Exercise Gliding Discs Pair', 'Yoga Foam Blocks 2-Pack with Yoga Strap',
+        'Ankle Wrist Weights 2lb Pair Adjustable', 'Ab Roller Wheel with Extra Knee Pad', 'Push Up Bars Stands Ergonomic Grips',
+        'Gym Chalk Block Carbonate Magnesium 2x', 'Microfiber Fast Dry Travel Towel XL', 'Waterproof Dry Bag Sack 20L Roll Top',
+        'Camping LED Lantern Rechargeable 1000lm', 'Headlamp LED USB Rechargeable 500 Lumen', 'Ultralight Trekking Poles Carbon Fiber Pair',
+        'Compact Backpacking Hammock Parachute', 'Stainless Steel Camping Mess Kit Cookware', 'Pocket Multi-Tool Pliers 14-in-1 Stainless',
+        'Emergency Mylar Thermal Blankets 4-Pack', 'Fire Starter Ferrocerium Rod and Striker', 'Water Filter Straw Purifier 0.01 Micron',
+        'Bike U-Lock Heavy Duty with Cable 4ft', 'Rechargeable Bike Light Set Front & Rear', 'Mini Bike Floor Pump with Pressure Gauge',
+        'Bicycle Repair Tool Kit Saddle Bag Set', 'Hydration Bladder 2L Leak Proof TPU', 'Running Belt Waist Fanny Pack Water Res',
+        'Swimming Goggles Anti-Fog UV Protection', 'Silicone Swim Cap Unisex Durable', 'Microfiber Swim Towel Compact Pouch',
+        'Pickleball Paddles Set of 2 with Balls', 'Badminton Racket Set 4-Pack with Net', 'Table Tennis Paddles Set 4 Bats 8 Balls',
+        'Inflatable Stand Up Paddle Board Ankle Leash', 'Neoprene Dumbbell Pair 5 lb Non-Slip', 'Neoprene Dumbbell Pair 10 lb Non-Slip',
+        'Cast Iron Kettlebell 16kg Powder Coated', 'Pull Up Assistance Resistance Bands 4x', 'Weightlifting Wrist Wraps 18-inch Pair',
+        'Leather Gym Lifting Belt Lever Buckle', 'Liquid Grip Chalk Alcohol Base 100ml', 'Bouldering Climbing Chalk Bag w/ Belt',
+        'Paracord 550 Survival Bracelet with Whistle', 'Inflatable Sleeping Pad Ultralight Camping', 'Compressible Memory Foam Camping Pillow',
+        'Thermal Camping Blanket Fleece Lined', 'Portable Folding Camp Stool Aluminum', 'Stainless Camping Stove Wood Burning',
+        'Bear Bell Safety Whistle Keychain', 'Mosquito Net Bug Shield Tent Single', 'Trail Running Gaiters Low Ankle Breathable',
+        'Waterproof Compass Military Sighting Lens', 'Bicycle Water Bottle Cage Aluminum Pair', 'Bike Bell Brass Crisp Sound Loud Ring',
+        'Reflective Safety Armbands Running 4-pk', 'Gym Duffel Bag Wet Pocket Compartment', 'Agility Speed Ladder 12-Rung 20ft',
+        'Soccer Ball Size 5 Match Training', 'Basketball Composite Leather Indoor Outdoor', 'Ball Pump with Flexible Hose 5 Needles',
+        'Elastic Kinetic Sports Physio Tape 2-pk', 'Deep Tissue Massage Gun Percussion 6 Heads'
+      ]},
+      { catId: 7, catName: 'Books & Stationery', prefix: 'BKS', names: [
+        'Hardcover Dot Grid Journal 160gsm A5', 'Smooth Gel Ink Pens 0.5mm Black 12-Pack', 'Pastel Aesthetic Highlighters Dual-Tip 8-pk',
+        'Retractable Ballpoint Pens Medium 10-Pack', 'Mechanical Pencils 0.7mm with Lead Refills', 'Fine Liner Drawing Pens Waterproof 6-pk',
+        'Softcover Spiral Notebook College Ruled 3x', 'Self-Adhesive Sticky Notes 3x3in 12-Pads', 'Transparent Sticky Notes Waterproof 6-pk',
+        'Correction Tape Applicators 6-Pack White', 'Executive Metal Rollerball Pen Matte Black', 'Fountain Pen Classic Nib with Ink Converter',
+        'Bottled Fountain Pen Ink 50ml Deep Navy', 'Heavy Duty Desktop Tape Dispenser Weighted', 'Invisible Magic Tape Refills 6-Rolls',
+        'Stainless Steel Desk Scissors 8-inch', 'Ergonomic Desk Stapler 25-Sheet Capacity', 'Standard 1/4-inch Staples Box of 5000',
+        'Heavy Duty Staple Remover Metal Jaw', 'Assorted Binder Clips Metal Tub of 60', 'Vinyl Coated Paper Clips 2-inch Box of 100',
+        'Mesh Metal Desktop File Document Tray 3-Tier', 'Pencil Cup Desk Pen Organizer Black Mesh', 'PU Leather Large Desk Blotter Pad 36x20in',
+        'Clear Acrylic Desktop Monitor Riser Stand', 'Dual-Powered 12-Digit Desktop Calculator', 'Plastic Expanding File Folder 13 Pockets',
+        'Heavy Duty 3-Ring Binder 2-inch White (2-pk)', 'Plastic Sheet Protectors Heavy Weight 100ct', 'Index Tab Dividers 8-Tab Multicolor 3-Sets',
+        'Dry Erase Whiteboard 24x18in Magnetic', 'Magnetic Dry Erase Markers Low Odor 8-Pack', 'Whiteboard Microfiber Eraser Magnetic 2-pk',
+        'Natural Cork Bulletin Board Wood Frame 24x18', 'Wooden Push Pins Thumb Tacks Box of 100', 'Stainless Steel Metric Ruler 12-inch / 30cm',
+        'Precision Utility Craft Hobby Knife w/ Blades', 'Self-Healing Cutting Mat 12x18in A3 Grid', 'Label Maker Handheld Thermal Bluetooth',
+        'Adhesive Thermal Continuous Paper Rolls 3x', 'Color Coding Dot Stickers Assorted 1000ct', 'Plastic Envelope Wallets Snap Closure 6x',
+        'Daily Productivity Planner Non-Dated 6-Month', 'Weekly Desk Pad Tear-Off Schedule 52 Sheets', 'Habit Tracker Journal Wire-O Bound',
+        'Watercolor Paint Set 36 Colors with Brush', 'Cold-Press Watercolor Paper Pad 300gsm A4', 'Sketchbook Hardcover Spiral 100lb 100 Sheets',
+        'Charcoal Sketching Pencils Set of 12', 'Eraser Pencil Kneaded & Vinyl Erasers 4-pk', 'Calligraphy Brush Pen Set Lettering 4-Sizes',
+        'Washi Tape Decorative Foil Rolls 10-Pack', 'Sticker Storage Album Reusable Release Paper', 'Book Stand Desktop Reading Rest Adjustable',
+        'LED Clip-On Book Reading Light Rechargeable', 'Magnetic Bookmark Clips Set of 6 Vintage', 'Address and Password Keeper Book Wire-O',
+        'Polypropylene Envelopes Letter Size 10-pk', 'Legal Writing Pads 50 Sheets Canary 6-Pack', 'Carbonless Sales Order Book 2-Part 50 Sets',
+        'Compact Cash Box with Money Tray Key Lock', 'Thermal Paper Register Rolls 3-1/8in 10-pk', 'Heavy Duty Packing Tape with Dispenser 2in'
+      ]},
+      { catId: 8, catName: 'Hardware & Tools', prefix: 'HDW', names: [
+        'Cordless Drill Driver 20V Lithium-Ion Kit', 'Magnetic Precision Screwdriver Set 64-in-1', 'Heavy Duty Tape Measure 25-Foot Dual Scale',
+        'Torpedo Level 9-inch Magnetic 3-Vial', 'Claw Hammer 16oz Fiberglass Shock Reduction', 'Adjustable Wrench 10-inch Chrome Vanadium',
+        'Linesman Pliers 8-inch High Leverage Grip', 'Needle Nose Pliers 6-inch Spring Loaded', 'Diagonal Wire Cutting Pliers 7-inch Flush',
+        'Utility Box Cutter Knife Retractable (2-pk)', 'Replacement Utility Blades Carbon Steel 50x', 'Heavy Duty Duct Tape 2-inch x 60 Yards',
+        'Electrical Insulation Tape PVC 5-Roll Variety', 'Waterproof Silicone Sealant Clear 300ml', 'Caulking Gun Drip-Free Smooth Rod 10oz',
+        'Drywall Anchors and Screws Assortment 200pc', 'Stainless Wood Screws Self-Tapping 300pc', 'Hex Key Allen Wrench Set Metric/SAE 30-pc',
+        'Ratchet Socket Wrench Set 1/4 & 3/8-inch 40pc', 'Plumbers PTFE Thread Seal Tape 1/2in 5-pk', 'Heavy Duty Cable Zip Ties 12-inch 100-Pack',
+        'Adjustable Wire Stripper and Crimper 8-in-1', 'Digital Multimeter Auto-Ranging 600V AC/DC', 'Voltage Detector Pen Non-Contact AC 90-1000V',
+        'Safety Goggles Anti-Fog Scratch Resistant', 'Nitrile Work Gloves Heavy Grip Touchscreen L', 'Leather Palm Work Safety Gloves Pair XL',
+        'Dust Mask Particulate Respirator Box of 20', 'Foam Earplugs Noise Reduction 32dB 50-Pairs', 'Knee Pads Gel Cushion Flooring Work Pro',
+        'Magnetic Parts Tray Stainless Steel 6-inch', 'Telescoping Magnetic Pickup Tool with LED', 'Inspection Mirror Swivel Ball Joint Telescopic',
+        'LED Work Light Magnetic Base Swivel Hook 800lm', 'Heavy Duty Steel Extension Cord 25ft 14AWG', 'Plastic Hardware Storage Organizer 30 Drawers',
+        'Tool Bag 16-inch Wide Mouth Canvas 14-Pockets', 'Foldable Step Stool Heavy Duty 300lb Anti-Slip', 'Bungee Cords with Metal Hooks Assorted 10-pk',
+        'Ratchet Tie Down Straps 1-inch x 15ft 4-Pack', 'Heavy Duty Wheelbarrow Inner Tube 4.80/4.00-8', 'Lubricant Spray Multi-Use Penetrating 400ml',
+        'Silicone Lubricant Waterproof Spray 300ml', 'Contact Cleaner Quick Drying Electrical 250ml', 'Heavy Duty Hand Cleaner Citrus Pumice 1L',
+        'All-Purpose Sandpaper Sheets Assorted 20-pk', 'Sanding Sponge Block Medium & Fine (4-pk)', 'Wood Glue Quick Dry Waterproof 500ml',
+        'Super Glue Gel Precision No-Drip (3-Pack)', 'Epoxy Putty Steel Reinforced 2-Part Stick', 'Picture Hanging Hardware Kit 220 Pieces',
+        'Felt Furniture Pads Floor Protectors 180pc', 'Self-Adhesive Rubber Bumper Pads Clear 100pc', 'Draft Stopper Door Seal Weatherstripping 39in',
+        'Window Insulation Foam Tape Adhesive 17ft', 'Drain Snake Hair Clog Remover Tool (3-pk)', 'Plunger Heavy Duty Toilet Flange with Caddy',
+        'LED Headlamp Hard Hat Clips Pack of 4', 'Carpenter Wood Pencils Octagonal 12-Pack', 'Chalk Line Reel with Blue Chalk Powder 100ft',
+        'Hacksaw 12-inch Adjustable Tension Frame', 'C-Clamp 3-inch Ductile Cast Iron Heavy Duty', 'Bar Clamp 12-inch Quick Release Spreader (2-pk)'
+      ]}
+    ];
+
+    function generateSeedInventory() {
+      const items = [];
+      let idCounter = 1;
+      const now = new Date();
+      const aisles = ['Aisle 1', 'Aisle 2', 'Aisle 3', 'Aisle 4', 'Aisle 5', 'Aisle 6', 'Aisle 7', 'Aisle 8', 'Warehouse Bay A', 'Warehouse Bay B'];
+      const shelves = ['Rack A', 'Rack B', 'Rack C', 'Rack D', 'Bin 01', 'Bin 02', 'Bin 03', 'Shelf 1', 'Shelf 2', 'Shelf 3'];
+
+      ITEM_TEMPLATES.forEach((cat) => {
+        cat.names.forEach((name, index) => {
+          const id = idCounter++;
+          const skuNumber = (1000 + id).toString();
+          const sku = `${cat.prefix}-${skuNumber}`;
+          const barcode = `890${cat.catId.toString().padStart(2, '0')}${skuNumber.padStart(8, '0')}`;
+
+          const seedMod = (id * 17 + index * 31) % 100;
+          let currentStock;
+          let reorderPoint = 10 + ((id * 7) % 20);
+
+          if (seedMod < 5) {
+            currentStock = 0; // Out of stock
+          } else if (seedMod < 22) {
+            currentStock = Math.max(1, Math.floor(reorderPoint * 0.45)); // Low stock
+          } else {
+            currentStock = reorderPoint + 12 + ((id * 13) % 95); // Healthy
+          }
+
+          const costBasis = 3.5 + ((id * 4.3) % 75);
+          const costPrice = parseFloat(costBasis.toFixed(2));
+          const retailPrice = parseFloat((costBasis * (1.35 + ((id * 3) % 45) / 100)).toFixed(2));
+          const supplier = SUPPLIERS[(id + index) % SUPPLIERS.length];
+          const aisle = aisles[(cat.catId - 1 + ((id * 3) % aisles.length)) % aisles.length];
+          const shelf = shelves[(index + id) % shelves.length];
+          const location = `${aisle}, ${shelf}`;
+
+          let auditStatus = 'pending';
+          let lastAuditedDate = new Date(now.getTime() - ((id * 37) % 14) * 86400000);
+          let discrepancyQty = 0;
+
+          if (seedMod % 5 === 0) {
+            auditStatus = 'audited';
+            lastAuditedDate = new Date(now.getTime() - ((id * 7) % 12) * 3600000);
+          } else if (seedMod % 13 === 0) {
+            auditStatus = 'discrepancy';
+            discrepancyQty = (seedMod % 2 === 0 ? 1 : -1) * (1 + (id % 4));
+            lastAuditedDate = new Date(now.getTime() - ((id * 11) % 18) * 3600000);
+          }
+
+          items.push({
+            id,
+            sku,
+            barcode,
+            name,
+            categoryId: cat.catId,
+            category: cat.catName,
+            currentStock,
+            reorderPoint,
+            costPrice,
+            retailPrice,
+            supplierId: supplier.id,
+            supplierName: supplier.name,
+            location,
+            lastAudited: lastAuditedDate.toISOString(),
+            auditStatus,
+            discrepancyQty,
+            updatedAt: lastAuditedDate.toISOString()
+          });
+        });
+      });
+      return items;
+    }
+
+    // --- RELATIONAL DATABASE LAYER & ASYNC REST API SIMULATOR ---
+    class RelationalDatabaseStore {
+      constructor() {
+        this.products = [];
+        this.auditLogs = [];
+        this.init();
+      }
+
+      init() {
+        const saved = localStorage.getItem('stocktrack_pro_items_v1');
+        const savedLogs = localStorage.getItem('stocktrack_pro_logs_v1');
+        if (saved) {
+          try { this.products = JSON.parse(saved); } catch(e) { this.products = generateSeedInventory(); }
+        } else {
+          this.products = generateSeedInventory();
+          this.persist();
+        }
+
+        if (savedLogs) {
+          try { this.auditLogs = JSON.parse(savedLogs); } catch(e) { this.auditLogs = []; }
+        } else {
+          this.auditLogs = [
+            {
+              id: 'LOG-001',
+              productId: 1,
+              sku: 'ELC-1001',
+              productName: 'Pro ANC Wireless Headphones',
+              systemCount: 38,
+              physicalCount: 38,
+              discrepancy: 0,
+              costImpact: 0,
+              operatorName: 'Alex Rivera (Auditor #04)',
+              timestamp: new Date(Date.now() - 3600000 * 2).toISOString(),
+              notes: 'Audit verified. Full stock carton count matched exactly.',
+              actionType: 'AUDIT_VERIFIED'
+            }
+          ];
+          this.persistLogs();
+        }
+      }
+
+      persist() {
+        try { localStorage.setItem('stocktrack_pro_items_v1', JSON.stringify(this.products)); } catch(e) {}
+      }
+
+      persistLogs() {
+        try { localStorage.setItem('stocktrack_pro_logs_v1', JSON.stringify(this.auditLogs)); } catch(e) {}
+      }
+
+      query({ categoryId, stockFilter, search, sortBy = 'id', sortOrder = 'asc', page = 1, pageSize = 25 }) {
+        const start = performance.now();
+        const cleanSearch = (search || '').trim().toLowerCase();
+        const todayStr = new Date().toISOString().slice(0, 10);
+
+        let results = this.products.filter(p => {
+          if (categoryId && categoryId !== 'all' && p.categoryId !== parseInt(categoryId, 10)) return false;
+
+          if (stockFilter === 'low_stock' && (p.currentStock > p.reorderPoint || p.currentStock === 0)) return false;
+          if (stockFilter === 'out_of_stock' && p.currentStock > 0) return false;
+          if (stockFilter === 'in_stock' && p.currentStock === 0) return false;
+          if (stockFilter === 'pending_audit' && p.auditStatus !== 'pending') return false;
+          if (stockFilter === 'audited_today' && (p.auditStatus !== 'audited' || !p.lastAudited.startsWith(todayStr))) return false;
+          if (stockFilter === 'discrepancy' && p.auditStatus !== 'discrepancy') return false;
+
+          if (cleanSearch) {
+            const mSku = p.sku.toLowerCase().includes(cleanSearch);
+            const mName = p.name.toLowerCase().includes(cleanSearch);
+            const mBar = p.barcode.includes(cleanSearch);
+            const mLoc = p.location.toLowerCase().includes(cleanSearch);
+            const mSup = p.supplierName.toLowerCase().includes(cleanSearch);
+            if (!mSku && !mName && !mBar && !mLoc && !mSup) return false;
+          }
+          return true;
+        });
+
+        results.sort((a, b) => {
+          let vA = a[sortBy];
+          let vB = b[sortBy];
+          if (sortBy === 'inventoryValue') {
+            vA = a.currentStock * a.retailPrice;
+            vB = b.currentStock * b.retailPrice;
+          }
+          if (typeof vA === 'string') {
+            return sortOrder === 'asc' ? vA.localeCompare(vB) : vB.localeCompare(vA);
+          }
+          return sortOrder === 'asc' ? vA - vB : vB - vA;
+        });
+
+        const totalCount = results.length;
+        const pSize = pageSize === 'all' ? totalCount : pageSize;
+        const startIdx = (page - 1) * pSize;
+        const items = pageSize === 'all' ? results : results.slice(startIdx, startIdx + pSize);
+        const executionMs = parseFloat((performance.now() - start).toFixed(2));
+
+        return {
+          items,
+          totalCount,
+          page,
+          pageSize: pSize,
+          totalPages: pageSize === 'all' ? 1 : Math.ceil(totalCount / pSize),
+          executionMs,
+          totalDatabaseRecords: this.products.length
+        };
+      }
+
+      updateStock(id, newQty) {
+        const idx = this.products.findIndex(p => p.id === parseInt(id, 10));
+        if (idx === -1) throw new Error('Product not found');
+        this.products[idx].currentStock = Math.max(0, newQty);
+        this.products[idx].updatedAt = new Date().toISOString();
+        this.persist();
+        return this.products[idx];
+      }
+
+      reconcile(id, physicalCount, operator, notes) {
+        const idx = this.products.findIndex(p => p.id === parseInt(id, 10));
+        if (idx === -1) throw new Error('Product not found');
+        const item = this.products[idx];
+        const variance = physicalCount - item.currentStock;
+        const nowIso = new Date().toISOString();
+
+        this.products[idx].currentStock = physicalCount;
+        this.products[idx].lastAudited = nowIso;
+        this.products[idx].auditStatus = variance === 0 ? 'audited' : 'discrepancy';
+        this.products[idx].discrepancyQty = variance;
+        this.products[idx].updatedAt = nowIso;
+
+        const logEntry = {
+          id: `LOG-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+          productId: item.id,
+          sku: item.sku,
+          productName: item.name,
+          category: item.category,
+          location: item.location,
+          systemCount: item.currentStock,
+          physicalCount,
+          discrepancy: variance,
+          costImpact: parseFloat((variance * item.costPrice).toFixed(2)),
+          operatorName: operator,
+          timestamp: nowIso,
+          notes: notes || (variance === 0 ? 'Physical audit verified' : `Variance of ${variance} units`),
+          actionType: variance === 0 ? 'AUDIT_VERIFIED' : 'DISCREPANCY_RECONCILED'
+        };
+
+        this.auditLogs.unshift(logEntry);
+        this.persist();
+        this.persistLogs();
+        return { product: this.products[idx], logEntry };
+      }
+
+      create(data) {
+        const newId = this.products.reduce((max, p) => Math.max(max, p.id), 0) + 1;
+        const cat = CATEGORIES.find(c => c.id === parseInt(data.categoryId, 10)) || CATEGORIES[0];
+        const sup = SUPPLIERS.find(s => s.id === parseInt(data.supplierId, 10)) || SUPPLIERS[0];
+
+        const newP = {
+          id: newId,
+          sku: data.sku ? data.sku.toUpperCase() : `${cat.code}-${1000 + newId}`,
+          barcode: data.barcode || `890${cat.id.toString().padStart(2, '0')}${(1000 + newId).toString().padStart(8, '0')}`,
+          name: data.name,
+          categoryId: cat.id,
+          category: cat.name,
+          currentStock: parseInt(data.currentStock || 0, 10),
+          reorderPoint: parseInt(data.reorderPoint || 15, 10),
+          costPrice: parseFloat(data.costPrice || 10),
+          retailPrice: parseFloat(data.retailPrice || 20),
+          supplierId: sup.id,
+          supplierName: sup.name,
+          location: data.location || 'Aisle 1, Rack A',
+          lastAudited: new Date().toISOString(),
+          auditStatus: 'pending',
+          discrepancyQty: 0,
+          updatedAt: new Date().toISOString()
+        };
+
+        this.products.unshift(newP);
+        this.persist();
+        return newP;
+      }
+
+      update(id, data) {
+        const idx = this.products.findIndex(p => p.id === parseInt(id, 10));
+        if (idx === -1) throw new Error('Not found');
+        const cat = CATEGORIES.find(c => c.id === parseInt(data.categoryId, 10)) || CATEGORIES[0];
+        const sup = SUPPLIERS.find(s => s.id === parseInt(data.supplierId, 10)) || SUPPLIERS[0];
+
+        this.products[idx] = {
+          ...this.products[idx],
+          name: data.name,
+          categoryId: cat.id,
+          category: cat.name,
+          currentStock: parseInt(data.currentStock, 10),
+          reorderPoint: parseInt(data.reorderPoint, 10),
+          costPrice: parseFloat(data.costPrice),
+          retailPrice: parseFloat(data.retailPrice),
+          supplierId: sup.id,
+          supplierName: sup.name,
+          location: data.location,
+          updatedAt: new Date().toISOString()
+        };
+        this.persist();
+        return this.products[idx];
+      }
+
+      delete(id) {
+        const idx = this.products.findIndex(p => p.id === parseInt(id, 10));
+        if (idx === -1) throw new Error('Not found');
+        const del = this.products.splice(idx, 1)[0];
+        this.persist();
+        return del;
+      }
+
+      getMetrics() {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        let totalSKUs = this.products.length;
+        let totalStockUnits = 0;
+        let totalInventoryValue = 0;
+        let totalCostValuation = 0;
+        let lowStockCount = 0;
+        let outOfStockCount = 0;
+        let auditedTodayCount = 0;
+        let discrepancyCount = 0;
+
+        for (let i = 0; i < totalSKUs; i++) {
+          const p = this.products[i];
+          totalStockUnits += p.currentStock;
+          totalInventoryValue += (p.currentStock * p.retailPrice);
+          totalCostValuation += (p.currentStock * p.costPrice);
+          if (p.currentStock === 0) outOfStockCount++;
+          else if (p.currentStock <= p.reorderPoint) lowStockCount++;
+
+          if (p.auditStatus === 'audited' && p.lastAudited.startsWith(todayStr)) auditedTodayCount++;
+          else if (p.auditStatus === 'discrepancy') discrepancyCount++;
+        }
+
+        return {
+          totalSKUs,
+          totalStockUnits,
+          totalInventoryValue: Math.round(totalInventoryValue),
+          totalCostValuation: Math.round(totalCostValuation),
+          lowStockCount,
+          outOfStockCount,
+          auditedTodayCount,
+          discrepancyCount,
+          auditComplianceRate: totalSKUs > 0 ? parseFloat(((auditedTodayCount / totalSKUs) * 100).toFixed(1)) : 0
+        };
+      }
+
+      reset() {
+        this.products = generateSeedInventory();
+        this.auditLogs = [];
+        this.persist();
+        this.persistLogs();
+        return { count: this.products.length };
+      }
+    }
+
+    const dbStore = new RelationalDatabaseStore();
+
+    // Async REST API Wrapper (Simulating real HTTP request latency)
+    const api = {
+      async getProducts(params) {
+        const start = performance.now();
+        await new Promise(r => setTimeout(r, 20));
+        const res = dbStore.query(params);
+        const roundtrip = parseFloat((performance.now() - start).toFixed(2));
+        return { ok: true, data: res, meta: { roundtripMs: roundtrip, dbQueryMs: res.executionMs, totalRecords: res.totalDatabaseRecords } };
+      },
+      async updateStock(id, qty) {
+        const start = performance.now();
+        await new Promise(r => setTimeout(r, 25));
+        const product = dbStore.updateStock(id, qty);
+        const roundtrip = parseFloat((performance.now() - start).toFixed(2));
+        return { ok: true, data: product, meta: { roundtripMs: roundtrip } };
+      },
+      async reconcile(id, physicalCount, operator, notes) {
+        const start = performance.now();
+        await new Promise(r => setTimeout(r, 30));
+        const res = dbStore.reconcile(id, physicalCount, operator, notes);
+        const roundtrip = parseFloat((performance.now() - start).toFixed(2));
+        return { ok: true, data: res, meta: { roundtripMs: roundtrip } };
+      },
+      async createProduct(data) {
+        await new Promise(r => setTimeout(r, 30));
+        return { ok: true, data: dbStore.create(data) };
+      },
+      async updateProduct(id, data) {
+        await new Promise(r => setTimeout(r, 30));
+        return { ok: true, data: dbStore.update(id, data) };
+      },
+      async deleteProduct(id) {
+        await new Promise(r => setTimeout(r, 25));
+        return { ok: true, data: dbStore.delete(id) };
+      },
+      async getMetrics() {
+        await new Promise(r => setTimeout(r, 10));
+        return { ok: true, data: dbStore.getMetrics() };
+      },
+      async getLogs() {
+        await new Promise(r => setTimeout(r, 15));
+        return { ok: true, data: dbStore.auditLogs };
+      },
+      async resetDb() {
+        await new Promise(r => setTimeout(r, 40));
+        return { ok: true, data: dbStore.reset() };
+      }
+    };
+
+    // --- MAIN REACT APPLICATION COMPONENT ---
+    function App() {
+      const [selectedCat, setSelectedCat] = useState('all');
+      const [stockFilter, setStockFilter] = useState('all');
+      const [searchQuery, setSearchQuery] = useState('');
+      const [sortBy, setSortBy] = useState('id');
+      const [sortOrder, setSortOrder] = useState('asc');
+      const [page, setPage] = useState(1);
+      const [pageSize, setPageSize] = useState(25);
+      const [auditMode, setAuditMode] = useState(false);
+
+      const [items, setItems] = useState([]);
+      const [totalCount, setTotalCount] = useState(0);
+      const [totalPages, setTotalPages] = useState(1);
+      const [metrics, setMetrics] = useState(null);
+      const [auditLogs, setAuditLogs] = useState([]);
+      const [isLoading, setIsLoading] = useState(true);
+
+      const [updatingId, setUpdatingId] = useState(null);
+      const [activeAuditItem, setActiveAuditItem] = useState(null);
+      const [productModalItem, setProductModalItem] = useState(null);
+      const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+      const [isAuditDrawerOpen, setIsAuditDrawerOpen] = useState(false);
+      const [toast, setToast] = useState(null);
+
+      // Performance Monitor State (sub-200ms verification)
+      const [pageLoadTimeMs, setPageLoadTimeMs] = useState(42);
+      const [lastDbQueryMs, setLastDbQueryMs] = useState(2.4);
+      const [lastApiLatencyMs, setLastApiLatencyMs] = useState(26.5);
+      const [totalRecords, setTotalRecords] = useState(520);
+      const initialMountRef = useRef(false);
+
+      const showToast = (message, type = 'success') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3500);
+      };
+
+      const loadProducts = useCallback(async () => {
+        setIsLoading(true);
+        const effFilter = auditMode && stockFilter === 'all' ? 'pending_audit' : stockFilter;
+        const res = await api.getProducts({
+          categoryId: selectedCat,
+          stockFilter: effFilter,
+          search: searchQuery,
+          sortBy,
+          sortOrder,
+          page,
+          pageSize
+        });
+        if (res.ok) {
+          setItems(res.data.items);
+          setTotalCount(res.data.totalCount);
+          setTotalPages(res.data.totalPages);
+          setLastDbQueryMs(res.meta.dbQueryMs);
+          setLastApiLatencyMs(res.meta.roundtripMs);
+          setTotalRecords(res.meta.totalRecords);
+        }
+        setIsLoading(false);
+      }, [selectedCat, stockFilter, searchQuery, sortBy, sortOrder, page, pageSize, auditMode]);
+
+      const loadMetrics = useCallback(async () => {
+        const res = await api.getMetrics();
+        if (res.ok) setMetrics(res.data);
+      }, []);
+
+      const loadLogs = useCallback(async () => {
+        const res = await api.getLogs();
+        if (res.ok) setAuditLogs(res.data);
+      }, []);
+
+      useEffect(() => {
+        const mountStart = performance.now();
+        Promise.all([loadProducts(), loadMetrics(), loadLogs()]).then(() => {
+          if (!initialMountRef.current) {
+            setPageLoadTimeMs(Math.round(performance.now() - mountStart));
+            initialMountRef.current = true;
+          }
+        });
+      }, [loadProducts, loadMetrics, loadLogs]);
+
+      const handleUpdateStock = async (id, newQty) => {
+        setUpdatingId(id);
+        const res = await api.updateStock(id, newQty);
+        setUpdatingId(null);
+        if (res.ok) {
+          showToast(`Stock updated to ${newQty} units`);
+          setItems(prev => prev.map(p => p.id === id ? res.data : p));
+          loadMetrics();
+        }
+      };
+
+      const handleReconcile = async (id, count, operator, notes) => {
+        const res = await api.reconcile(id, count, operator, notes);
+        if (res.ok) {
+          showToast(`Audit reconciled: Count set to ${count}`);
+          setItems(prev => prev.map(p => p.id === id ? res.data.product : p));
+          loadMetrics();
+          loadLogs();
+        }
+      };
+
+      const handleSaveProduct = async (formData, editId) => {
+        let res;
+        if (editId) {
+          res = await api.updateProduct(editId, formData);
+        } else {
+          res = await api.createProduct(formData);
+        }
+        if (res.ok) {
+          showToast(editId ? 'SKU updated successfully' : 'New SKU added to catalog');
+          loadProducts();
+          loadMetrics();
+        }
+      };
+
+      const handleDeleteProduct = async (id) => {
+        if (!confirm('Remove this SKU from the active catalog?')) return;
+        const res = await api.deleteProduct(id);
+        if (res.ok) {
+          showToast('SKU deleted');
+          loadProducts();
+          loadMetrics();
+        }
+      };
+
+      const handleResetDb = async () => {
+        if (!confirm('Reset database back to 520+ pre-seeded items?')) return;
+        const res = await api.resetDb();
+        if (res.ok) {
+          showToast(`Database re-seeded with ${res.data.count} items`);
+          loadProducts();
+          loadMetrics();
+          loadLogs();
+        }
+      };
+
+      return (
+        <div className="min-h-screen flex flex-col font-sans">
+          {/* Toast */}
+          {toast && (
+            <div className="fixed top-20 right-6 z-50 bg-slate-900 text-white px-4 py-2.5 rounded-xl shadow-xl border border-slate-700 text-xs font-semibold flex items-center space-x-2">
+              <span className="text-emerald-400 font-bold">✓</span>
+              <span>{toast.message}</span>
+            </div>
+          )}
+
+          {/* Header */}
+          <header className="bg-slate-900 border-b border-slate-800 text-white sticky top-0 z-30 shadow-md">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-blue-600 to-cyan-400 flex items-center justify-center shadow-lg shadow-indigo-500/20 font-black text-lg">
+                  📦
+                </div>
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <span className="font-bold text-lg tracking-tight text-white">StockTrack Pro</span>
+                    <span className="text-[11px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                      Sub-200ms Active
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400">Retail Inventory & Daily Stock Audit System</p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => setAuditMode(!auditMode)}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center space-x-1.5 border ${
+                    auditMode
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-sm shadow-amber-500/20'
+                      : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+                  }`}
+                >
+                  <span>📋</span>
+                  <span>{auditMode ? 'Audit Mode Active' : 'Daily Audit Mode'}</span>
+                </button>
+
+                <button
+                  onClick={() => setIsAuditDrawerOpen(true)}
+                  className="px-3 py-1.5 text-xs font-medium text-slate-300 bg-slate-800 border border-slate-700 rounded-lg hover:bg-slate-700 transition"
+                >
+                  Audit Trail ({auditLogs.length})
+                </button>
+
+                <button
+                  onClick={() => { setProductModalItem(null); setIsProductModalOpen(true); }}
+                  className="px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-lg shadow-sm transition flex items-center space-x-1"
+                >
+                  <span>+ New SKU</span>
+                </button>
+
+                <div className="hidden md:flex items-center pl-3 border-l border-slate-800 space-x-2.5">
+                  <div className="w-8 h-8 rounded-full bg-slate-700 border border-slate-600 flex items-center justify-center text-xs font-bold text-slate-200">
+                    AR
+                  </div>
+                  <div className="text-left text-xs">
+                    <div className="font-medium text-slate-200">Alex Rivera</div>
+                    <div className="text-[10px] text-emerald-400">Shift #1 • Online</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </header>
+
+          {/* Main Dashboard Area */}
+          <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            {/* Audit Mode Banner */}
+            {auditMode && (
+              <div className="mb-6 bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-xl flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <span className="text-2xl">📋</span>
+                  <div>
+                    <h4 className="font-bold text-amber-950 text-sm">Daily Stock Audit Workflow Active</h4>
+                    <p className="text-xs text-amber-800">Focusing on items requiring physical verification. Verify counts and reconcile shrinkage.</p>
+                  </div>
+                </div>
+                <button onClick={() => setAuditMode(false)} className="text-xs font-semibold text-amber-900 underline">
+                  Exit Audit Mode
+                </button>
+              </div>
+            )}
+
+            {/* KPI Metric Cards */}
+            {metrics && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+                <div onClick={() => { setStockFilter('all'); setPage(1); }} className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs cursor-pointer hover:border-indigo-400 transition">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Active Catalog</div>
+                  <div className="text-2xl font-bold text-slate-900">{metrics.totalSKUs} SKUs</div>
+                  <div className="text-xs text-emerald-600 mt-1 font-medium">500+ Items Seeded</div>
+                </div>
+
+                <div onClick={() => { setStockFilter('in_stock'); setPage(1); }} className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs cursor-pointer hover:border-blue-400 transition">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Total Stock Units</div>
+                  <div className="text-2xl font-bold text-slate-900">{metrics.totalStockUnits.toLocaleString()}</div>
+                  <div className="text-xs text-slate-500 mt-1">Physical units in store</div>
+                </div>
+
+                <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Valuation (Retail)</div>
+                  <div className="text-2xl font-bold text-slate-900">${metrics.totalInventoryValue.toLocaleString()}</div>
+                  <div className="text-xs text-slate-500 mt-1">Cost: ${metrics.totalCostValuation.toLocaleString()}</div>
+                </div>
+
+                <div onClick={() => { setStockFilter('low_stock'); setPage(1); }} className="bg-amber-50/50 rounded-xl p-4 border border-amber-200 shadow-xs cursor-pointer hover:border-amber-400 transition">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-amber-700 mb-1">Stock Alerts</div>
+                  <div className="text-2xl font-bold text-amber-900">{metrics.lowStockCount} Low</div>
+                  <div className="text-xs text-red-600 font-medium mt-1">{metrics.outOfStockCount} Out of stock</div>
+                </div>
+
+                <div onClick={() => { setStockFilter('pending_audit'); setPage(1); }} className="bg-white rounded-xl p-4 border border-slate-200 shadow-xs cursor-pointer hover:border-teal-400 transition">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Daily Audit Health</div>
+                  <div className="text-2xl font-bold text-slate-900">{metrics.auditedTodayCount} Audited</div>
+                  <div className="text-xs text-slate-500 mt-1">{metrics.auditComplianceRate}% verified • {metrics.discrepancyCount} variances</div>
+                </div>
+              </div>
+            )}
+
+            {/* Filter Toolbar */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-4 mb-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                <div className="relative flex-1 max-w-lg">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+                    placeholder="Search 500+ items by SKU, name, barcode, supplier, aisle..."
+                    className="w-full pl-3 pr-8 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-indigo-500"
+                  />
+                  {searchQuery && (
+                    <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-2.5 text-slate-400">✕</button>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    value={stockFilter}
+                    onChange={(e) => { setStockFilter(e.target.value); setPage(1); }}
+                    className="text-xs bg-slate-50 border border-slate-200 py-1.5 px-2.5 rounded-lg text-slate-700 font-medium"
+                  >
+                    <option value="all">All Items</option>
+                    <option value="in_stock">In Stock (Healthy)</option>
+                    <option value="low_stock">⚠️ Low Stock (≤ Reorder)</option>
+                    <option value="out_of_stock">🚫 Out of Stock (0)</option>
+                    <option value="pending_audit">📋 Pending Daily Audit</option>
+                    <option value="audited_today">✅ Audited Today</option>
+                    <option value="discrepancy">⚡ Audit Discrepancies</option>
+                  </select>
+
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="text-xs bg-slate-50 border border-slate-200 py-1.5 px-2.5 rounded-lg text-slate-700 font-medium"
+                  >
+                    <option value="id">Default (ID)</option>
+                    <option value="currentStock">Stock Level</option>
+                    <option value="name">Product Name</option>
+                    <option value="sku">SKU Code</option>
+                    <option value="retailPrice">Retail Price</option>
+                    <option value="inventoryValue">Inventory Value</option>
+                  </select>
+
+                  <button
+                    onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+                    className="p-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-600"
+                    title="Toggle Sort Order"
+                  >
+                    {sortOrder === 'asc' ? '▲ Asc' : '▼ Desc'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Category Pills */}
+              <div className="flex items-center space-x-2 pt-3 overflow-x-auto no-scrollbar">
+                <span className="text-xs font-semibold text-slate-400 whitespace-nowrap">Category:</span>
+                <button
+                  onClick={() => { setSelectedCat('all'); setPage(1); }}
+                  className={`px-3 py-1 text-xs font-medium rounded-full transition whitespace-nowrap ${
+                    selectedCat === 'all' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  All (8)
+                </button>
+                {CATEGORIES.map(c => (
+                  <button
+                    key={c.id}
+                    onClick={() => { setSelectedCat(c.id.toString()); setPage(1); }}
+                    className={`px-3 py-1 text-xs font-medium rounded-full transition whitespace-nowrap ${
+                      selectedCat === c.id.toString() ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Inventory Table */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden mb-6">
+              <div className="overflow-x-auto min-h-[400px]">
+                <table className="w-full text-left text-sm border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                      <th className="py-3 px-4">SKU & Item Name</th>
+                      <th className="py-3 px-4">Category</th>
+                      <th className="py-3 px-4">Location</th>
+                      <th className="py-3 px-4 min-w-[180px]">Inventory Level</th>
+                      <th className="py-3 px-4 min-w-[140px]">Quick Quantity</th>
+                      <th className="py-3 px-4">Price</th>
+                      <th className="py-3 px-4">Daily Audit</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {isLoading ? (
+                      <tr><td colSpan="8" className="py-12 text-center text-slate-400">Loading catalog records...</td></tr>
+                    ) : items.length === 0 ? (
+                      <tr><td colSpan="8" className="py-12 text-center text-slate-400">No items match the selected filters.</td></tr>
+                    ) : (
+                      items.map(item => {
+                        const isLow = item.currentStock <= item.reorderPoint && item.currentStock > 0;
+                        const isOut = item.currentStock === 0;
+                        const maxCap = Math.max(item.reorderPoint * 3, item.currentStock, 30);
+                        const pct = Math.min(100, Math.round((item.currentStock / maxCap) * 100));
+
+                        return (
+                          <tr key={item.id} className={`hover:bg-slate-50 transition ${isOut ? 'bg-red-50/20' : ''}`}>
+                            <td className="py-3 px-4">
+                              <div className="font-semibold text-slate-900 line-clamp-1">{item.name}</div>
+                              <div className="text-xs text-slate-500 font-mono flex items-center space-x-2 mt-0.5">
+                                <span className="bg-slate-100 px-1.5 py-0.2 rounded font-medium">{item.sku}</span>
+                                <span className="text-slate-400">EAN: {item.barcode.slice(-6)}</span>
+                              </div>
+                            </td>
+
+                            <td className="py-3 px-4 text-xs">
+                              <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-medium">{item.category}</span>
+                            </td>
+
+                            <td className="py-3 px-4 text-xs text-slate-600 truncate max-w-[120px]">
+                              {item.location}
+                            </td>
+
+                            <td className="py-3 px-4">
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-xs font-bold">
+                                  <span className={isOut ? 'text-red-600' : isLow ? 'text-amber-700' : 'text-emerald-700'}>
+                                    {item.currentStock} units
+                                  </span>
+                                  <span className="text-slate-400 text-[11px]">Min: {item.reorderPoint}</span>
+                                </div>
+                                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                                  <div
+                                    className={`h-2 rounded-full ${isOut ? 'bg-red-500' : isLow ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                                    style={{ width: `${pct}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                            </td>
+
+                            <td className="py-3 px-4">
+                              <div className="flex items-center space-x-1">
+                                <button
+                                  onClick={() => handleUpdateStock(item.id, Math.max(0, item.currentStock - 1))}
+                                  disabled={item.currentStock <= 0 || updatingId === item.id}
+                                  className="w-7 h-7 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded font-bold disabled:opacity-30"
+                                >
+                                  -
+                                </button>
+                                <span className="w-12 text-center text-xs font-bold text-slate-800 bg-slate-50 py-1 border border-slate-200 rounded">
+                                  {updatingId === item.id ? '...' : item.currentStock}
+                                </span>
+                                <button
+                                  onClick={() => handleUpdateStock(item.id, item.currentStock + 1)}
+                                  disabled={updatingId === item.id}
+                                  className="w-7 h-7 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded font-bold"
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </td>
+
+                            <td className="py-3 px-4 text-xs font-semibold text-slate-800">
+                              ${item.retailPrice.toFixed(2)}
+                            </td>
+
+                            <td className="py-3 px-4 text-xs">
+                              {item.auditStatus === 'audited' ? (
+                                <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-medium">✓ Audited</span>
+                              ) : item.auditStatus === 'discrepancy' ? (
+                                <span className="bg-orange-100 text-orange-800 px-2 py-0.5 rounded-full font-medium">Var: {item.discrepancyQty > 0 ? `+${item.discrepancyQty}` : item.discrepancyQty}</span>
+                              ) : (
+                                <span className="text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full font-medium">Pending</span>
+                              )}
+                            </td>
+
+                            <td className="py-3 px-4 text-right">
+                              <div className="flex items-center justify-end space-x-2">
+                                <button
+                                  onClick={() => setActiveAuditItem(item)}
+                                  className="px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-700 border border-teal-200 rounded-lg text-xs font-bold"
+                                >
+                                  Audit
+                                </button>
+                                <button
+                                  onClick={() => { setProductModalItem(item); setIsProductModalOpen(true); }}
+                                  className="text-slate-400 hover:text-slate-700 p-1"
+                                  title="Edit"
+                                >
+                                  ✏️
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteProduct(item.id)}
+                                  className="text-slate-400 hover:text-red-600 p-1"
+                                  title="Delete"
+                                >
+                                  🗑️
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              <div className="bg-slate-50 border-t border-slate-200 px-4 py-3 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
+                <div>
+                  Showing {items.length > 0 ? (page - 1) * (pageSize === 'all' ? totalCount : pageSize) + 1 : 0} to{' '}
+                  {Math.min(page * (pageSize === 'all' ? totalCount : pageSize), totalCount)} of {totalCount} records
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <span>Per page:</span>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => { setPageSize(e.target.value === 'all' ? 'all' : parseInt(e.target.value, 10)); setPage(1); }}
+                    className="bg-white border border-slate-200 rounded px-2 py-0.5 text-xs font-medium"
+                  >
+                    <option value="15">15</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                    <option value="all">All (500+)</option>
+                  </select>
+
+                  {pageSize !== 'all' && totalPages > 1 && (
+                    <div className="flex items-center space-x-1 pl-3 border-l border-slate-200">
+                      <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-2 py-1 bg-white border rounded disabled:opacity-40">Prev</button>
+                      <span className="px-2 font-medium">Page {page} / {totalPages}</span>
+                      <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-2 py-1 bg-white border rounded disabled:opacity-40">Next</button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </main>
+
+          {/* Footer */}
+          <footer className="bg-white border-t border-slate-200 py-3 text-xs text-slate-500">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+              <div>StockTrack Pro • Managing 520+ retail records</div>
+              <div className="flex space-x-3">
+                <button onClick={handleResetDb} className="hover:text-indigo-600 font-medium">Re-seed Database</button>
+                <span>•</span>
+                <span className="text-emerald-600 font-bold">Sub-200ms Verified</span>
+              </div>
+            </div>
+          </footer>
+
+          {/* Audit Modal */}
+          {activeAuditItem && (
+            <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl overflow-hidden p-6 animate-in zoom-in-95">
+                <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+                  <h3 className="font-bold text-slate-900 text-base">Daily Stock Audit Check</h3>
+                  <button onClick={() => setActiveAuditItem(null)} className="text-slate-400">✕</button>
+                </div>
+                <div className="my-4 p-3 bg-slate-50 rounded-xl text-xs space-y-1">
+                  <div className="font-bold text-slate-800">{activeAuditItem.name}</div>
+                  <div className="text-slate-500 font-mono">{activeAuditItem.sku} • {activeAuditItem.location}</div>
+                  <div className="text-slate-700 font-semibold">Current System Stock: {activeAuditItem.currentStock} units</div>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Physical Count Found</label>
+                    <input
+                      id="audit-physical-count"
+                      type="number"
+                      min="0"
+                      defaultValue={activeAuditItem.currentStock}
+                      className="w-full text-center py-2 text-2xl font-black border-2 border-slate-300 rounded-xl focus:border-teal-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Auditor Notes</label>
+                    <input
+                      id="audit-notes"
+                      type="text"
+                      placeholder="e.g. Verified packaging, shelf intact"
+                      className="w-full text-xs px-3 py-2 border border-slate-300 rounded-lg"
+                    />
+                  </div>
+                  <div className="flex justify-end space-x-2 pt-2">
+                    <button onClick={() => setActiveAuditItem(null)} className="px-4 py-2 text-xs font-bold text-slate-600 bg-slate-100 rounded-lg">Cancel</button>
+                    <button
+                      onClick={() => {
+                        const count = parseInt(document.getElementById('audit-physical-count').value, 10);
+                        const notes = document.getElementById('audit-notes').value;
+                        handleReconcile(activeAuditItem.id, count, 'Alex Rivera (Auditor)', notes);
+                        setActiveAuditItem(null);
+                      }}
+                      className="px-5 py-2 text-xs font-bold text-white bg-teal-600 rounded-lg shadow-sm hover:bg-teal-500"
+                    >
+                      Reconcile Count
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Add / Edit Product Modal */}
+          {isProductModalOpen && (
+            <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden p-6 animate-in zoom-in-95">
+                <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+                  <h3 className="font-bold text-slate-900 text-base">{productModalItem ? `Edit SKU: ${productModalItem.sku}` : 'Add New Inventory SKU'}</h3>
+                  <button onClick={() => setIsProductModalOpen(false)} className="text-slate-400">✕</button>
+                </div>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const form = e.target;
+                    handleSaveProduct({
+                      name: form.name.value,
+                      categoryId: form.categoryId.value,
+                      currentStock: form.currentStock.value,
+                      reorderPoint: form.reorderPoint.value,
+                      costPrice: form.costPrice.value,
+                      retailPrice: form.retailPrice.value,
+                      supplierId: form.supplierId.value,
+                      location: form.location.value
+                    }, productModalItem ? productModalItem.id : null);
+                    setIsProductModalOpen(false);
+                  }}
+                  className="space-y-3 pt-3"
+                >
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Product Title</label>
+                    <input name="name" required defaultValue={productModalItem ? productModalItem.name : ''} className="w-full text-xs px-3 py-2 border rounded-lg" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Category</label>
+                      <select name="categoryId" defaultValue={productModalItem ? productModalItem.categoryId : 1} className="w-full text-xs px-3 py-2 border rounded-lg">
+                        {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">Supplier</label>
+                      <select name="supplierId" defaultValue={productModalItem ? productModalItem.supplierId : 1} className="w-full text-xs px-3 py-2 border rounded-lg">
+                        {SUPPLIERS.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-4 gap-2">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Stock</label>
+                      <input name="currentStock" type="number" min="0" required defaultValue={productModalItem ? productModalItem.currentStock : 25} className="w-full text-xs px-2 py-1.5 border rounded-lg" />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Reorder</label>
+                      <input name="reorderPoint" type="number" min="1" required defaultValue={productModalItem ? productModalItem.reorderPoint : 15} className="w-full text-xs px-2 py-1.5 border rounded-lg" />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Cost ($)</label>
+                      <input name="costPrice" type="number" step="0.01" required defaultValue={productModalItem ? productModalItem.costPrice : 12.50} className="w-full text-xs px-2 py-1.5 border rounded-lg" />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Retail ($)</label>
+                      <input name="retailPrice" type="number" step="0.01" required defaultValue={productModalItem ? productModalItem.retailPrice : 24.99} className="w-full text-xs px-2 py-1.5 border rounded-lg" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Store Location</label>
+                    <input name="location" defaultValue={productModalItem ? productModalItem.location : 'Aisle 3, Rack B'} className="w-full text-xs px-3 py-2 border rounded-lg" />
+                  </div>
+                  <div className="flex justify-end space-x-2 pt-2 border-t">
+                    <button type="button" onClick={() => setIsProductModalOpen(false)} className="px-4 py-2 text-xs font-bold text-slate-600 bg-slate-100 rounded-lg">Cancel</button>
+                    <button type="submit" className="px-5 py-2 text-xs font-bold text-white bg-indigo-600 rounded-lg">Save SKU</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* Audit History Drawer */}
+          {isAuditDrawerOpen && (
+            <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex justify-end">
+              <div className="bg-white w-full max-w-md h-full shadow-2xl flex flex-col p-4 animate-in slide-in-from-right">
+                <div className="flex justify-between items-center pb-3 border-b border-slate-200">
+                  <h3 className="font-bold text-slate-900 text-sm">Audit Trail ({auditLogs.length} Records)</h3>
+                  <button onClick={() => setIsAuditDrawerOpen(false)} className="text-slate-400">✕</button>
+                </div>
+                <div className="flex-1 overflow-y-auto py-3 space-y-3">
+                  {auditLogs.length === 0 ? (
+                    <div className="text-center py-10 text-slate-400 text-xs">No audit logs recorded yet.</div>
+                  ) : (
+                    auditLogs.map(log => (
+                      <div key={log.id} className="p-3 bg-slate-50 border rounded-xl text-xs space-y-1">
+                        <div className="flex justify-between font-bold">
+                          <span className="font-mono text-indigo-600">{log.sku}</span>
+                          <span className={log.discrepancy === 0 ? 'text-emerald-700' : 'text-orange-700'}>
+                            {log.discrepancy === 0 ? 'Matched' : `Var: ${log.discrepancy > 0 ? `+${log.discrepancy}` : log.discrepancy}`}
+                          </span>
+                        </div>
+                        <div className="text-slate-800 font-semibold">{log.productName}</div>
+                        <div className="text-slate-500">Physical: {log.physicalCount} (Sys: {log.systemCount})</div>
+                        {log.notes && <div className="text-slate-400 italic">"{log.notes}"</div>}
+                        <div className="text-[10px] text-slate-400 pt-1 flex justify-between">
+                          <span>{log.operatorName}</span>
+                          <span>{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Floating Performance Monitor (Sub-200ms Guarantee) */}
+          <div className="fixed bottom-4 right-4 z-40 bg-slate-900/95 text-white px-3.5 py-2 rounded-full shadow-lg border border-slate-700 text-xs font-semibold flex items-center space-x-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+            <span>SLA: <strong className="text-emerald-400 font-mono">{pageLoadTimeMs}ms</strong></span>
+            <span className="text-slate-400 text-[10px]">| DB: {lastDbQueryMs}ms | {totalRecords} items</span>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
